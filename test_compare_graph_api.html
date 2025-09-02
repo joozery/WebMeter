@@ -1,0 +1,155 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Test Compare Graph API</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; }
+        .test-section { margin: 20px 0; padding: 15px; border: 1px solid #ccc; }
+        .result { background: #f5f5f5; padding: 10px; margin: 10px 0; border-radius: 4px; }
+        button { padding: 10px 20px; margin: 5px; cursor: pointer; }
+        pre { white-space: pre-wrap; word-wrap: break-word; }
+    </style>
+</head>
+<body>
+    <h1>Test Compare Graph API</h1>
+    
+    <div class="test-section">
+        <h3>Test API Response</h3>
+        <button onclick="testAPI()">Test API Call</button>
+        <div id="apiResult" class="result"></div>
+    </div>
+
+    <div class="test-section">
+        <h3>Test Data Processing</h3>
+        <button onclick="testDataProcessing()">Test Data Processing</button>
+        <div id="processingResult" class="result"></div>
+    </div>
+
+    <script>
+        const API_BASE_URL = 'http://localhost:3001/api';
+
+        async function testAPI() {
+            const resultDiv = document.getElementById('apiResult');
+            resultDiv.innerHTML = 'Testing API...';
+            
+            try {
+                const params = {
+                    dateFrom: '2024-01-15',
+                    dateTo: '2024-01-15',
+                    timeFrom: '00:00',
+                    timeTo: '23:59',
+                    columns: ['Demand W', 'Demand Var', 'Demand VA'],
+                    slaveIds: [1] // Test with slave_id 1
+                };
+
+                const queryParams = new URLSearchParams({
+                    dateFrom: params.dateFrom,
+                    dateTo: params.dateTo,
+                    timeFrom: params.timeFrom,
+                    timeTo: params.timeTo,
+                });
+
+                params.columns.forEach(col => {
+                    queryParams.append('columns', col);
+                });
+
+                params.slaveIds.forEach(slaveId => {
+                    queryParams.append('slaveIds', slaveId.toString());
+                });
+
+                const response = await fetch(`${API_BASE_URL}/table-data?${queryParams.toString()}`);
+                const data = await response.json();
+
+                resultDiv.innerHTML = `
+                    <h4>API Response:</h4>
+                    <pre>${JSON.stringify(data, null, 2)}</pre>
+                    
+                    <h4>Data Analysis:</h4>
+                    <p>Success: ${data.success}</p>
+                    <p>Data Count: ${data.data ? data.data.length : 0}</p>
+                    ${data.data && data.data.length > 0 ? `
+                        <p>First Row Keys: ${Object.keys(data.data[0]).join(', ')}</p>
+                        <p>First Row Sample:</p>
+                        <pre>${JSON.stringify(data.data[0], null, 2)}</pre>
+                    ` : '<p>No data returned</p>'}
+                `;
+            } catch (error) {
+                resultDiv.innerHTML = `<p style="color: red;">Error: ${error.message}</p>`;
+            }
+        }
+
+        function testDataProcessing() {
+            const resultDiv = document.getElementById('processingResult');
+            resultDiv.innerHTML = 'Testing data processing...';
+            
+            // Simulate the data processing logic from CompareGraph
+            const mockData = [
+                {
+                    time: '2024-01-15T10:00:00',
+                    'Demand W': '100.5',
+                    'Demand Var': '50.2',
+                    'Demand VA': '112.3'
+                },
+                {
+                    time: '2024-01-15T11:00:00',
+                    'Demand W': '120.8',
+                    'Demand Var': '60.1',
+                    'Demand VA': '135.2'
+                }
+            ];
+
+            const selectedSlaveIds = [1];
+            const selectedMeterNames = ['Test Meter'];
+            const selectedColumns = ['Demand W', 'Demand Var', 'Demand VA'];
+
+            // Process data similar to CompareGraph
+            const processedData = mockData.map(row => {
+                const newRow = { ...row };
+                
+                // Add meter-specific data
+                selectedSlaveIds.forEach((slaveId, index) => {
+                    const meterName = selectedMeterNames[index] || `Meter ${slaveId}`;
+                    selectedColumns.forEach(column => {
+                        const dataKey = `${meterName} - ${column}`;
+                        const value = newRow[column];
+                        
+                        if (typeof value === 'string' && !isNaN(parseFloat(value))) {
+                            newRow[dataKey] = parseFloat(value);
+                        } else if (typeof value === 'number') {
+                            newRow[dataKey] = value;
+                        } else {
+                            newRow[dataKey] = 0;
+                        }
+                    });
+                });
+                
+                return newRow;
+            });
+
+            resultDiv.innerHTML = `
+                <h4>Original Data:</h4>
+                <pre>${JSON.stringify(mockData, null, 2)}</pre>
+                
+                <h4>Processed Data:</h4>
+                <pre>${JSON.stringify(processedData, null, 2)}</pre>
+                
+                <h4>Data Keys Analysis:</h4>
+                <p>Original Keys: ${Object.keys(mockData[0]).join(', ')}</p>
+                <p>Processed Keys: ${Object.keys(processedData[0]).join(', ')}</p>
+                
+                <h4>Expected Chart Data Keys:</h4>
+                <ul>
+                    ${selectedSlaveIds.map((slaveId, index) => {
+                        const meterName = selectedMeterNames[index] || `Meter ${slaveId}`;
+                        return selectedColumns.map(column => 
+                            `<li>${meterName} - ${column}</li>`
+                        ).join('');
+                    }).join('')}
+                </ul>
+            `;
+        }
+    </script>
+</body>
+</html>

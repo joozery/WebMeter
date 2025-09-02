@@ -1,0 +1,360 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Test LogNet CRUD Operations</title>
+    <style>
+        .test-section {
+            margin: 20px 0;
+            padding: 15px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+        }
+        .success { background-color: #d4edda; border-color: #c3e6cb; }
+        .error { background-color: #f8d7da; border-color: #f5c6cb; }
+        .info { background-color: #d1ecf1; border-color: #bee5eb; }
+        button {
+            margin: 5px;
+            padding: 8px 16px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+        .btn-primary { background-color: #007bff; color: white; }
+        .btn-success { background-color: #28a745; color: white; }
+        .btn-warning { background-color: #ffc107; color: black; }
+        .btn-danger { background-color: #dc3545; color: white; }
+        .btn-info { background-color: #17a2b8; color: white; }
+        input, select {
+            margin: 5px;
+            padding: 5px;
+            border: 1px solid #ddd;
+            border-radius: 3px;
+        }
+        .form-group {
+            margin: 10px 0;
+        }
+        .form-group label {
+            display: inline-block;
+            width: 120px;
+            font-weight: bold;
+        }
+    </style>
+</head>
+<body>
+    <h1>Test LogNet CRUD Operations</h1>
+    
+    <div class="test-section info">
+        <h3>📋 Instructions</h3>
+        <p>1. First, create a location to test with</p>
+        <p>2. Then create a LogNet in that location</p>
+        <p>3. Test update and delete operations</p>
+    </div>
+
+    <div class="test-section">
+        <h3>🏢 Step 1: Create Test Location</h3>
+        <div class="form-group">
+            <label>Location Name:</label>
+            <input type="text" id="locationName" value="Test Location" />
+        </div>
+        <button class="btn-primary" onclick="createLocation()">Create Location</button>
+        <div id="locationResult"></div>
+    </div>
+
+    <div class="test-section">
+        <h3>🖥️ Step 2: Create Test LogNet</h3>
+        <div class="form-group">
+            <label>Location ID:</label>
+            <input type="number" id="locationId" placeholder="Enter location ID from step 1" />
+        </div>
+        <div class="form-group">
+            <label>LogNet Name:</label>
+            <input type="text" id="lognetName" value="Test LogNet" />
+        </div>
+        <div class="form-group">
+            <label>Brand:</label>
+            <input type="text" id="lognetBrand" value="Test Brand" />
+        </div>
+        <div class="form-group">
+            <label>Model:</label>
+            <input type="text" id="lognetModel" value="Test Model" />
+        </div>
+        <div class="form-group">
+            <label>Serial Number:</label>
+            <input type="text" id="lognetSerial" value="SN001" />
+        </div>
+        <div class="form-group">
+            <label>Firmware Version:</label>
+            <input type="text" id="lognetFirmware" value="v1.0" />
+        </div>
+        <div class="form-group">
+            <label>IP Address:</label>
+            <input type="text" id="lognetIP" value="192.168.1.100" />
+        </div>
+        <div class="form-group">
+            <label>Subnet Mask:</label>
+            <input type="text" id="lognetSubnet" value="255.255.255.0" />
+        </div>
+        <div class="form-group">
+            <label>Gateway:</label>
+            <input type="text" id="lognetGateway" value="192.168.1.1" />
+        </div>
+        <div class="form-group">
+            <label>DNS:</label>
+            <input type="text" id="lognetDNS" value="8.8.8.8" />
+        </div>
+        <button class="btn-success" onclick="createLogNet()">Create LogNet</button>
+        <div id="createResult"></div>
+    </div>
+
+    <div class="test-section">
+        <h3>📖 Step 3: Read LogNets</h3>
+        <button class="btn-info" onclick="getAllLogNets()">Get All LogNets</button>
+        <button class="btn-info" onclick="getLogNetById()">Get LogNet by ID</button>
+        <input type="number" id="getLogNetId" placeholder="Enter LogNet ID" />
+        <div id="readResult"></div>
+    </div>
+
+    <div class="test-section">
+        <h3>✏️ Step 4: Update LogNet</h3>
+        <div class="form-group">
+            <label>LogNet ID:</label>
+            <input type="number" id="updateLogNetId" placeholder="Enter LogNet ID to update" />
+        </div>
+        <div class="form-group">
+            <label>New Name:</label>
+            <input type="text" id="updateLogNetName" value="Updated LogNet" />
+        </div>
+        <div class="form-group">
+            <label>New Brand:</label>
+            <input type="text" id="updateLogNetBrand" value="Updated Brand" />
+        </div>
+        <div class="form-group">
+            <label>New Model:</label>
+            <input type="text" id="updateLogNetModel" value="Updated Model" />
+        </div>
+        <button class="btn-warning" onclick="updateLogNet()">Update LogNet</button>
+        <div id="updateResult"></div>
+    </div>
+
+    <div class="test-section">
+        <h3>🗑️ Step 5: Delete LogNet</h3>
+        <div class="form-group">
+            <label>LogNet ID:</label>
+            <input type="number" id="deleteLogNetId" placeholder="Enter LogNet ID to delete" />
+        </div>
+        <button class="btn-danger" onclick="deleteLogNet()">Delete LogNet</button>
+        <div id="deleteResult"></div>
+    </div>
+
+    <div class="test-section">
+        <h3>🔄 Step 6: Verify Operations</h3>
+        <button class="btn-info" onclick="verifyAllOperations()">Verify All Operations</button>
+        <div id="verifyResult"></div>
+    </div>
+
+    <script>
+        const API_BASE = '/api/meter-tree';
+        
+        // Utility function to display results
+        function displayResult(elementId, message, isSuccess = true) {
+            const element = document.getElementById(elementId);
+            element.innerHTML = `<div class="${isSuccess ? 'success' : 'error'}">${message}</div>`;
+        }
+
+        // Step 1: Create Location
+        async function createLocation() {
+            try {
+                const name = document.getElementById('locationName').value;
+                const response = await fetch(`${API_BASE}/locations`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        name: name,
+                        description: 'Test location for LogNet CRUD testing',
+                        parent_id: null
+                    })
+                });
+                
+                const data = await response.json();
+                if (response.ok) {
+                    displayResult('locationResult', `✅ Location created successfully!<br>ID: ${data.id}<br>Name: ${data.name}`, true);
+                    document.getElementById('locationId').value = data.id;
+                } else {
+                    displayResult('locationResult', `❌ Error: ${data.error || 'Failed to create location'}`, false);
+                }
+            } catch (error) {
+                displayResult('locationResult', `❌ Error: ${error.message}`, false);
+            }
+        }
+
+        // Step 2: Create LogNet
+        async function createLogNet() {
+            try {
+                const locationId = parseInt(document.getElementById('locationId').value);
+                const lognetData = {
+                    location_id: locationId,
+                    sublocation_id: null,
+                    name: document.getElementById('lognetName').value,
+                    brand: document.getElementById('lognetBrand').value,
+                    model: document.getElementById('lognetModel').value,
+                    serial_number: document.getElementById('lognetSerial').value,
+                    firmware_version: document.getElementById('lognetFirmware').value,
+                    ip_address: document.getElementById('lognetIP').value || null,
+                    subnet_mask: document.getElementById('lognetSubnet').value || null,
+                    gateway: document.getElementById('lognetGateway').value || null,
+                    dns: document.getElementById('lognetDNS').value || null,
+                    is_active: true
+                };
+
+                const response = await fetch(`${API_BASE}/lognets`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(lognetData)
+                });
+                
+                const data = await response.json();
+                if (response.ok) {
+                    displayResult('createResult', `✅ LogNet created successfully!<br>ID: ${data.id}<br>Name: ${data.name}`, true);
+                    document.getElementById('updateLogNetId').value = data.id;
+                    document.getElementById('deleteLogNetId').value = data.id;
+                } else {
+                    displayResult('createResult', `❌ Error: ${data.error || 'Failed to create LogNet'}`, false);
+                }
+            } catch (error) {
+                displayResult('createResult', `❌ Error: ${error.message}`, false);
+            }
+        }
+
+        // Step 3: Read LogNets
+        async function getAllLogNets() {
+            try {
+                const response = await fetch(`${API_BASE}/lognets`);
+                const data = await response.json();
+                
+                if (response.ok) {
+                    const formattedData = data.map(lognet => ({
+                        id: lognet.id,
+                        name: lognet.name,
+                        location_id: lognet.location_id,
+                        sublocation_id: lognet.sublocation_id,
+                        main_location_name: lognet.main_location_name,
+                        sub_location_name: lognet.sub_location_name,
+                        brand: lognet.brand,
+                        model: lognet.model,
+                        serial_number: lognet.serial_number,
+                        firmware_version: lognet.firmware_version,
+                        ip_address: lognet.ip_address,
+                        subnet_mask: lognet.subnet_mask,
+                        gateway: lognet.gateway,
+                        dns: lognet.dns,
+                        is_active: lognet.is_active
+                    }));
+                    
+                    displayResult('readResult', `✅ Found ${data.length} LogNet(s):<br><pre>${JSON.stringify(formattedData, null, 2)}</pre>`, true);
+                } else {
+                    displayResult('readResult', `❌ Error: ${data.error || 'Failed to fetch LogNets'}`, false);
+                }
+            } catch (error) {
+                displayResult('readResult', `❌ Error: ${error.message}`, false);
+            }
+        }
+
+        async function getLogNetById() {
+            try {
+                const id = document.getElementById('getLogNetId').value;
+                if (!id) {
+                    displayResult('readResult', '❌ Please enter a LogNet ID', false);
+                    return;
+                }
+
+                const response = await fetch(`${API_BASE}/lognets/${id}`);
+                const data = await response.json();
+                
+                if (response.ok) {
+                    displayResult('readResult', `✅ LogNet found:<br><pre>${JSON.stringify(data, null, 2)}</pre>`, true);
+                } else {
+                    displayResult('readResult', `❌ Error: ${data.error || 'Failed to fetch LogNet'}`, false);
+                }
+            } catch (error) {
+                displayResult('readResult', `❌ Error: ${error.message}`, false);
+            }
+        }
+
+        // Step 4: Update LogNet
+        async function updateLogNet() {
+            try {
+                const id = parseInt(document.getElementById('updateLogNetId').value);
+                const updateData = {
+                    name: document.getElementById('updateLogNetName').value,
+                    brand: document.getElementById('updateLogNetBrand').value,
+                    model: document.getElementById('updateLogNetModel').value,
+                    serial_number: document.getElementById('lognetSerial').value,
+                    firmware_version: document.getElementById('lognetFirmware').value,
+                    ip_address: document.getElementById('lognetIP').value || null,
+                    subnet_mask: document.getElementById('lognetSubnet').value || null,
+                    gateway: document.getElementById('lognetGateway').value || null,
+                    dns: document.getElementById('lognetDNS').value || null,
+                    is_active: true
+                };
+
+                const response = await fetch(`${API_BASE}/lognets/${id}`, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(updateData)
+                });
+                
+                const data = await response.json();
+                if (response.ok) {
+                    displayResult('updateResult', `✅ LogNet updated successfully!<br><pre>${JSON.stringify(data, null, 2)}</pre>`, true);
+                } else {
+                    displayResult('updateResult', `❌ Error: ${data.error || 'Failed to update LogNet'}`, false);
+                }
+            } catch (error) {
+                displayResult('updateResult', `❌ Error: ${error.message}`, false);
+            }
+        }
+
+        // Step 5: Delete LogNet
+        async function deleteLogNet() {
+            try {
+                const id = document.getElementById('deleteLogNetId').value;
+                if (!id) {
+                    displayResult('deleteResult', '❌ Please enter a LogNet ID', false);
+                    return;
+                }
+
+                const response = await fetch(`${API_BASE}/lognets/${id}`, {
+                    method: 'DELETE'
+                });
+                
+                if (response.ok) {
+                    displayResult('deleteResult', `✅ LogNet deleted successfully!`, true);
+                } else {
+                    const data = await response.json();
+                    displayResult('deleteResult', `❌ Error: ${data.error || 'Failed to delete LogNet'}`, false);
+                }
+            } catch (error) {
+                displayResult('deleteResult', `❌ Error: ${error.message}`, false);
+            }
+        }
+
+        // Step 6: Verify All Operations
+        async function verifyAllOperations() {
+            try {
+                const response = await fetch(`${API_BASE}/lognets`);
+                const data = await response.json();
+                
+                if (response.ok) {
+                    displayResult('verifyResult', `✅ Verification complete!<br>Total LogNets in database: ${data.length}<br><pre>${JSON.stringify(data, null, 2)}</pre>`, true);
+                } else {
+                    displayResult('verifyResult', `❌ Error: ${data.error || 'Failed to verify'}`, false);
+                }
+            } catch (error) {
+                displayResult('verifyResult', `❌ Error: ${error.message}`, false);
+            }
+        }
+    </script>
+</body>
+</html>

@@ -1,0 +1,281 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Debug Delete Operations</title>
+    <style>
+        .test-section {
+            margin: 20px 0;
+            padding: 15px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+        }
+        .success { background-color: #d4edda; border-color: #c3e6cb; }
+        .error { background-color: #f8d7da; border-color: #f5c6cb; }
+        .info { background-color: #d1ecf1; border-color: #bee5eb; }
+        button {
+            margin: 5px;
+            padding: 8px 16px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+        .btn-primary { background-color: #007bff; color: white; }
+        .btn-danger { background-color: #dc3545; color: white; }
+        .btn-info { background-color: #17a2b8; color: white; }
+        input {
+            margin: 5px;
+            padding: 5px;
+            border: 1px solid #ddd;
+            border-radius: 3px;
+        }
+        .form-group {
+            margin: 10px 0;
+        }
+        .form-group label {
+            display: inline-block;
+            width: 120px;
+            font-weight: bold;
+        }
+        .log {
+            background-color: #f8f9fa;
+            border: 1px solid #dee2e6;
+            padding: 10px;
+            margin: 10px 0;
+            font-family: monospace;
+            font-size: 12px;
+            max-height: 300px;
+            overflow-y: auto;
+        }
+    </style>
+</head>
+<body>
+    <h1>Debug Delete Operations</h1>
+    
+    <div class="test-section info">
+        <h3>📋 Instructions</h3>
+        <p>1. First, check what data exists in the database</p>
+        <p>2. Try to delete specific items</p>
+        <p>3. Check the console logs for debugging information</p>
+    </div>
+
+    <div class="test-section">
+        <h3>📖 Step 1: Check Current Data</h3>
+        <button class="btn-info" onclick="getAllLocations()">Get All Locations</button>
+        <button class="btn-info" onclick="getAllLogNets()">Get All LogNets</button>
+        <div id="currentData"></div>
+    </div>
+
+    <div class="test-section">
+        <h3>🗑️ Step 2: Delete Location</h3>
+        <div class="form-group">
+            <label>Location ID:</label>
+            <input type="number" id="deleteLocationId" placeholder="Enter location ID to delete" />
+        </div>
+        <button class="btn-danger" onclick="deleteLocation()">Delete Location</button>
+        <div id="deleteLocationResult"></div>
+    </div>
+
+    <div class="test-section">
+        <h3>🗑️ Step 3: Delete LogNet</h3>
+        <div class="form-group">
+            <label>LogNet ID:</label>
+            <input type="number" id="deleteLogNetId" placeholder="Enter lognet ID to delete" />
+        </div>
+        <button class="btn-danger" onclick="deleteLogNet()">Delete LogNet</button>
+        <div id="deleteLogNetResult"></div>
+    </div>
+
+    <div class="test-section">
+        <h3>🔄 Step 4: Verify After Delete</h3>
+        <button class="btn-info" onclick="verifyAfterDelete()">Verify Data After Delete</button>
+        <div id="verifyResult"></div>
+    </div>
+
+    <div class="test-section">
+        <h3>📝 Console Logs</h3>
+        <div id="consoleLogs" class="log"></div>
+        <button onclick="clearLogs()">Clear Logs</button>
+    </div>
+
+    <script>
+        const API_BASE = '/api/meter-tree';
+        
+        // Intercept console.log to display in UI
+        const originalLog = console.log;
+        const originalError = console.error;
+        const originalWarn = console.warn;
+        
+        function addToLogs(message, type = 'log') {
+            const logsDiv = document.getElementById('consoleLogs');
+            const timestamp = new Date().toLocaleTimeString();
+            const logEntry = document.createElement('div');
+            logEntry.style.color = type === 'error' ? 'red' : type === 'warn' ? 'orange' : 'black';
+            logEntry.textContent = `[${timestamp}] ${message}`;
+            logsDiv.appendChild(logEntry);
+            logsDiv.scrollTop = logsDiv.scrollHeight;
+        }
+        
+        console.log = function(...args) {
+            originalLog.apply(console, args);
+            addToLogs(args.join(' '), 'log');
+        };
+        
+        console.error = function(...args) {
+            originalError.apply(console, args);
+            addToLogs(args.join(' '), 'error');
+        };
+        
+        console.warn = function(...args) {
+            originalWarn.apply(console, args);
+            addToLogs(args.join(' '), 'warn');
+        };
+        
+        function clearLogs() {
+            document.getElementById('consoleLogs').innerHTML = '';
+        }
+        
+        // Utility function to display results
+        function displayResult(elementId, message, isSuccess = true) {
+            const element = document.getElementById(elementId);
+            element.innerHTML = `<div class="${isSuccess ? 'success' : 'error'}">${message}</div>`;
+        }
+
+        // Step 1: Check Current Data
+        async function getAllLocations() {
+            try {
+                console.log('🔍 Fetching all locations...');
+                const response = await fetch(`${API_BASE}/locations`);
+                const data = await response.json();
+                
+                if (response.ok) {
+                    console.log('✅ Found locations:', data);
+                    displayResult('currentData', `✅ Found ${data.length} location(s):<br><pre>${JSON.stringify(data, null, 2)}</pre>`, true);
+                } else {
+                    console.error('❌ Error fetching locations:', data);
+                    displayResult('currentData', `❌ Error: ${data.error || 'Failed to fetch locations'}`, false);
+                }
+            } catch (error) {
+                console.error('❌ Error:', error.message);
+                displayResult('currentData', `❌ Error: ${error.message}`, false);
+            }
+        }
+
+        async function getAllLogNets() {
+            try {
+                console.log('🔍 Fetching all lognets...');
+                const response = await fetch(`${API_BASE}/lognets`);
+                const data = await response.json();
+                
+                if (response.ok) {
+                    console.log('✅ Found lognets:', data);
+                    displayResult('currentData', `✅ Found ${data.length} lognet(s):<br><pre>${JSON.stringify(data, null, 2)}</pre>`, true);
+                } else {
+                    console.error('❌ Error fetching lognets:', data);
+                    displayResult('currentData', `❌ Error: ${data.error || 'Failed to fetch lognets'}`, false);
+                }
+            } catch (error) {
+                console.error('❌ Error:', error.message);
+                displayResult('currentData', `❌ Error: ${error.message}`, false);
+            }
+        }
+
+        // Step 2: Delete Location
+        async function deleteLocation() {
+            try {
+                const id = document.getElementById('deleteLocationId').value;
+                if (!id) {
+                    displayResult('deleteLocationResult', '❌ Please enter a location ID', false);
+                    return;
+                }
+
+                console.log('🗑️ Deleting location with ID:', id);
+                const response = await fetch(`${API_BASE}/locations/${id}`, {
+                    method: 'DELETE'
+                });
+                
+                const data = await response.json();
+                console.log('📡 Delete location response:', { status: response.status, data });
+                
+                if (response.ok) {
+                    console.log('✅ Location deleted successfully');
+                    displayResult('deleteLocationResult', `✅ Location deleted successfully!<br>Response: ${JSON.stringify(data, null, 2)}`, true);
+                } else {
+                    console.error('❌ Error deleting location:', data);
+                    displayResult('deleteLocationResult', `❌ Error: ${data.error || 'Failed to delete location'}`, false);
+                }
+            } catch (error) {
+                console.error('❌ Error:', error.message);
+                displayResult('deleteLocationResult', `❌ Error: ${error.message}`, false);
+            }
+        }
+
+        // Step 3: Delete LogNet
+        async function deleteLogNet() {
+            try {
+                const id = document.getElementById('deleteLogNetId').value;
+                if (!id) {
+                    displayResult('deleteLogNetResult', '❌ Please enter a lognet ID', false);
+                    return;
+                }
+
+                console.log('🗑️ Deleting lognet with ID:', id);
+                const response = await fetch(`${API_BASE}/lognets/${id}`, {
+                    method: 'DELETE'
+                });
+                
+                const data = await response.json();
+                console.log('📡 Delete lognet response:', { status: response.status, data });
+                
+                if (response.ok) {
+                    console.log('✅ LogNet deleted successfully');
+                    displayResult('deleteLogNetResult', `✅ LogNet deleted successfully!<br>Response: ${JSON.stringify(data, null, 2)}`, true);
+                } else {
+                    console.error('❌ Error deleting lognet:', data);
+                    displayResult('deleteLogNetResult', `❌ Error: ${data.error || 'Failed to delete lognet'}`, false);
+                }
+            } catch (error) {
+                console.error('❌ Error:', error.message);
+                displayResult('deleteLogNetResult', `❌ Error: ${error.message}`, false);
+            }
+        }
+
+        // Step 4: Verify After Delete
+        async function verifyAfterDelete() {
+            try {
+                console.log('🔄 Verifying data after delete...');
+                
+                const [locationsResponse, lognetsResponse] = await Promise.all([
+                    fetch(`${API_BASE}/locations`),
+                    fetch(`${API_BASE}/lognets`)
+                ]);
+                
+                const locations = await locationsResponse.json();
+                const lognets = await lognetsResponse.json();
+                
+                console.log('✅ Verification complete:', { locations: locations.length, lognets: lognets.length });
+                
+                const result = `
+                    <h4>Data After Delete:</h4>
+                    <p><strong>Locations:</strong> ${locations.length}</p>
+                    <p><strong>LogNets:</strong> ${lognets.length}</p>
+                    <details>
+                        <summary>Locations Details</summary>
+                        <pre>${JSON.stringify(locations, null, 2)}</pre>
+                    </details>
+                    <details>
+                        <summary>LogNets Details</summary>
+                        <pre>${JSON.stringify(lognets, null, 2)}</pre>
+                    </details>
+                `;
+                
+                displayResult('verifyResult', result, true);
+            } catch (error) {
+                console.error('❌ Error during verification:', error.message);
+                displayResult('verifyResult', `❌ Error: ${error.message}`, false);
+            }
+        }
+    </script>
+</body>
+</html>

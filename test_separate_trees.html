@@ -1,0 +1,374 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Test Separate Trees</title>
+    <style>
+        .test-section {
+            margin: 20px 0;
+            padding: 15px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+        }
+        .success { background-color: #d4edda; border-color: #c3e6cb; }
+        .error { background-color: #f8d7da; border-color: #f5c6cb; }
+        .info { background-color: #d1ecf1; border-color: #bee5eb; }
+        button {
+            margin: 5px;
+            padding: 8px 16px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+        .btn-primary { background-color: #007bff; color: white; }
+        .btn-success { background-color: #28a745; color: white; }
+        .btn-warning { background-color: #ffc107; color: black; }
+        .btn-danger { background-color: #dc3545; color: white; }
+        .btn-info { background-color: #17a2b8; color: white; }
+        input {
+            margin: 5px;
+            padding: 5px;
+            border: 1px solid #ddd;
+            border-radius: 3px;
+        }
+        .form-group {
+            margin: 10px 0;
+        }
+        .form-group label {
+            display: inline-block;
+            width: 120px;
+            font-weight: bold;
+        }
+        .tree-data {
+            background-color: #f8f9fa;
+            border: 1px solid #dee2e6;
+            padding: 10px;
+            margin: 10px 0;
+            font-family: monospace;
+            font-size: 12px;
+            max-height: 300px;
+            overflow-y: auto;
+        }
+    </style>
+</head>
+<body>
+    <h1>Test Separate Trees</h1>
+    
+    <div class="test-section info">
+        <h3>📋 Instructions</h3>
+        <p>ทดสอบการทำงานของแต่ละหน้าแยกกัน:</p>
+        <p>1. System Tree: Location -> LogNet -> Meter</p>
+        <p>2. Building Tree: Location -> Building -> Floor -> Meter</p>
+        <p>3. Online Tree: Building Tree ที่ filter เฉพาะ enabled meters</p>
+    </div>
+
+    <div class="test-section">
+        <h3>🏢 Step 1: Create Test Data</h3>
+        <button class="btn-primary" onclick="createTestData()">Create Test Data</button>
+        <div id="createResult"></div>
+    </div>
+
+    <div class="test-section">
+        <h3>📖 Step 2: Test System Tree</h3>
+        <button class="btn-info" onclick="testSystemTree()">Test System Tree</button>
+        <div id="systemTreeResult" class="tree-data"></div>
+    </div>
+
+    <div class="test-section">
+        <h3>🏗️ Step 3: Test Building Tree</h3>
+        <button class="btn-info" onclick="testBuildingTree()">Test Building Tree</button>
+        <div id="buildingTreeResult" class="tree-data"></div>
+    </div>
+
+    <div class="test-section">
+        <h3>🌐 Step 4: Test Online Tree</h3>
+        <button class="btn-info" onclick="testOnlineTree()">Test Online Tree</button>
+        <div id="onlineTreeResult" class="tree-data"></div>
+    </div>
+
+    <div class="test-section">
+        <h3>🗑️ Step 5: Test Delete Operations</h3>
+        <div class="form-group">
+            <label>Location ID:</label>
+            <input type="number" id="deleteLocationId" placeholder="Enter location ID to delete" />
+        </div>
+        <button class="btn-danger" onclick="deleteLocation()">Delete Location</button>
+        <div id="deleteResult"></div>
+    </div>
+
+    <script>
+        const API_BASE = '/api/meter-tree';
+        
+        // Utility function to display results
+        function displayResult(elementId, message, isSuccess = true) {
+            const element = document.getElementById(elementId);
+            element.innerHTML = `<div class="${isSuccess ? 'success' : 'error'}">${message}</div>`;
+        }
+
+        // Step 1: Create Test Data
+        async function createTestData() {
+            try {
+                console.log('🔄 Creating test data...');
+                
+                // Create main location
+                const mainLocation = await fetch(`${API_BASE}/locations`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        name: 'Test Main Location',
+                        description: 'Test main location for separate trees',
+                        parent_id: null
+                    })
+                }).then(r => r.json());
+                
+                // Create sub location
+                const subLocation = await fetch(`${API_BASE}/locations`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        name: 'Test Sub Location',
+                        description: 'Test sub location for separate trees',
+                        parent_id: mainLocation.id
+                    })
+                }).then(r => r.json());
+                
+                // Create building
+                const building = await fetch(`${API_BASE}/buildings`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        location_id: mainLocation.id,
+                        name: 'Test Building',
+                        description: 'Test building for separate trees',
+                        is_active: true
+                    })
+                }).then(r => r.json());
+                
+                // Create floor
+                const floor = await fetch(`${API_BASE}/floors`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        building_id: building.id,
+                        name: 'Test Floor',
+                        floor_number: 1,
+                        description: 'Test floor for separate trees',
+                        is_active: true
+                    })
+                }).then(r => r.json());
+                
+                // Create lognet
+                const lognet = await fetch(`${API_BASE}/lognets`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        location_id: mainLocation.id,
+                        sublocation_id: null,
+                        name: 'Test LogNet',
+                        model: 'Test Model',
+                        brand: 'Test Brand',
+                        serial_number: 'SN001',
+                        firmware_version: 'v1.0',
+                        ip_address: '192.168.1.100',
+                        subnet_mask: '255.255.255.0',
+                        gateway: '192.168.1.1',
+                        dns: '8.8.8.8',
+                        is_active: true
+                    })
+                }).then(r => r.json());
+                
+                // Create meter for lognet (System Tree)
+                const systemMeter = await fetch(`${API_BASE}/meters`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        name: 'System Test Meter',
+                        brand: 'Test Brand',
+                        model: 'Test Model',
+                        meter_sn: 'MSN001',
+                        protocol: 'Modbus',
+                        ip_address: '192.168.1.101',
+                        slave_id: 1,
+                        port: 502,
+                        ct_primary: 100.00,
+                        pt_primary: 400.00,
+                        ct_secondary: 5.00,
+                        pt_secondary: 100.00,
+                        is_active: true,
+                        lognet_id: lognet.id,
+                        floor_id: null,
+                        is_disabled_in_building: false
+                    })
+                }).then(r => r.json());
+                
+                // Create meter for floor (Building Tree)
+                const buildingMeter = await fetch(`${API_BASE}/meters`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        name: 'Building Test Meter',
+                        brand: 'Test Brand',
+                        model: 'Test Model',
+                        meter_sn: 'MSN002',
+                        protocol: 'Modbus',
+                        ip_address: '192.168.1.102',
+                        slave_id: 2,
+                        port: 502,
+                        ct_primary: 100.00,
+                        pt_primary: 400.00,
+                        ct_secondary: 5.00,
+                        pt_secondary: 100.00,
+                        is_active: true,
+                        lognet_id: null,
+                        floor_id: floor.id,
+                        is_disabled_in_building: false
+                    })
+                }).then(r => r.json());
+                
+                // Create disabled meter for Online Tree test
+                const disabledMeter = await fetch(`${API_BASE}/meters`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        name: 'Disabled Test Meter',
+                        brand: 'Test Brand',
+                        model: 'Test Model',
+                        meter_sn: 'MSN003',
+                        protocol: 'Modbus',
+                        ip_address: '192.168.1.103',
+                        slave_id: 3,
+                        port: 502,
+                        ct_primary: 100.00,
+                        pt_primary: 400.00,
+                        ct_secondary: 5.00,
+                        pt_secondary: 100.00,
+                        is_active: false,
+                        lognet_id: null,
+                        floor_id: floor.id,
+                        is_disabled_in_building: true
+                    })
+                }).then(r => r.json());
+                
+                console.log('✅ Test data created successfully');
+                displayResult('createResult', `
+                    ✅ Test data created successfully!<br>
+                    <strong>Main Location:</strong> ${mainLocation.id} - ${mainLocation.name}<br>
+                    <strong>Sub Location:</strong> ${subLocation.id} - ${subLocation.name}<br>
+                    <strong>Building:</strong> ${building.id} - ${building.name}<br>
+                    <strong>Floor:</strong> ${floor.id} - ${floor.name}<br>
+                    <strong>LogNet:</strong> ${lognet.id} - ${lognet.name}<br>
+                    <strong>System Meter:</strong> ${systemMeter.id} - ${systemMeter.name}<br>
+                    <strong>Building Meter:</strong> ${buildingMeter.id} - ${buildingMeter.name}<br>
+                    <strong>Disabled Meter:</strong> ${disabledMeter.id} - ${disabledMeter.name}<br>
+                    <br>
+                    <strong>Use Location ID ${mainLocation.id} for delete test</strong>
+                `, true);
+                
+            } catch (error) {
+                console.error('❌ Error creating test data:', error);
+                displayResult('createResult', `❌ Error: ${error.message}`, false);
+            }
+        }
+
+        // Step 2: Test System Tree
+        async function testSystemTree() {
+            try {
+                console.log('🔄 Testing System Tree...');
+                const response = await fetch(`${API_BASE}/tree/system`);
+                const data = await response.json();
+                
+                if (response.ok) {
+                    console.log('✅ System Tree data:', data);
+                    document.getElementById('systemTreeResult').innerHTML = `
+                        <h4>System Tree Structure:</h4>
+                        <pre>${JSON.stringify(data, null, 2)}</pre>
+                    `;
+                } else {
+                    console.error('❌ Error fetching System Tree:', data);
+                    document.getElementById('systemTreeResult').innerHTML = `❌ Error: ${data.error || 'Failed to fetch System Tree'}`;
+                }
+            } catch (error) {
+                console.error('❌ Error:', error.message);
+                document.getElementById('systemTreeResult').innerHTML = `❌ Error: ${error.message}`;
+            }
+        }
+
+        // Step 3: Test Building Tree
+        async function testBuildingTree() {
+            try {
+                console.log('🔄 Testing Building Tree...');
+                const response = await fetch(`${API_BASE}/tree/building`);
+                const data = await response.json();
+                
+                if (response.ok) {
+                    console.log('✅ Building Tree data:', data);
+                    document.getElementById('buildingTreeResult').innerHTML = `
+                        <h4>Building Tree Structure:</h4>
+                        <pre>${JSON.stringify(data, null, 2)}</pre>
+                    `;
+                } else {
+                    console.error('❌ Error fetching Building Tree:', data);
+                    document.getElementById('buildingTreeResult').innerHTML = `❌ Error: ${data.error || 'Failed to fetch Building Tree'}`;
+                }
+            } catch (error) {
+                console.error('❌ Error:', error.message);
+                document.getElementById('buildingTreeResult').innerHTML = `❌ Error: ${error.message}`;
+            }
+        }
+
+        // Step 4: Test Online Tree
+        async function testOnlineTree() {
+            try {
+                console.log('🔄 Testing Online Tree...');
+                const response = await fetch(`${API_BASE}/tree/online`);
+                const data = await response.json();
+                
+                if (response.ok) {
+                    console.log('✅ Online Tree data:', data);
+                    document.getElementById('onlineTreeResult').innerHTML = `
+                        <h4>Online Tree Structure (Filtered):</h4>
+                        <pre>${JSON.stringify(data, null, 2)}</pre>
+                    `;
+                } else {
+                    console.error('❌ Error fetching Online Tree:', data);
+                    document.getElementById('onlineTreeResult').innerHTML = `❌ Error: ${data.error || 'Failed to fetch Online Tree'}`;
+                }
+            } catch (error) {
+                console.error('❌ Error:', error.message);
+                document.getElementById('onlineTreeResult').innerHTML = `❌ Error: ${error.message}`;
+            }
+        }
+
+        // Step 5: Test Delete Operations
+        async function deleteLocation() {
+            try {
+                const id = document.getElementById('deleteLocationId').value;
+                if (!id) {
+                    displayResult('deleteResult', '❌ Please enter a location ID', false);
+                    return;
+                }
+
+                console.log('🗑️ Deleting location with ID:', id);
+                const response = await fetch(`${API_BASE}/locations/${id}`, {
+                    method: 'DELETE'
+                });
+                
+                const data = await response.json();
+                console.log('📡 Delete location response:', { status: response.status, data });
+                
+                if (response.ok) {
+                    console.log('✅ Location deleted successfully');
+                    displayResult('deleteResult', `✅ Location deleted successfully!<br>Response: ${JSON.stringify(data, null, 2)}`, true);
+                } else {
+                    console.error('❌ Error deleting location:', data);
+                    displayResult('deleteResult', `❌ Error: ${data.error || 'Failed to delete location'}`, false);
+                }
+            } catch (error) {
+                console.error('❌ Error:', error.message);
+                displayResult('deleteResult', `❌ Error: ${error.message}`, false);
+            }
+        }
+    </script>
+</body>
+</html>

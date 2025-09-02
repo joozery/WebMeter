@@ -1,0 +1,88 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Test LogNet API</title>
+</head>
+<body>
+    <h1>Test LogNet API</h1>
+    
+    <h2>API Endpoints Test:</h2>
+    <button onclick="testGetLogNets()">Get All LogNets</button>
+    <button onclick="testCreateLogNet()">Create LogNet</button>
+    <button onclick="testCreateLogNetWithNullIP()">Create LogNet (Null IP)</button>
+    
+    <h3>Results:</h3>
+    <div id="results" style="background: #f5f5f5; padding: 10px; margin: 10px 0; white-space: pre-wrap; font-family: monospace;"></div>
+    
+    <script>
+        const API_BASE = '/api/meter-tree';
+        
+        async function testGetLogNets() {
+            try {
+                const response = await fetch(`${API_BASE}/lognets`);
+                const data = await response.json();
+                document.getElementById('results').textContent = 
+                    'GET /lognets:\n' + JSON.stringify(data, null, 2);
+            } catch (error) {
+                document.getElementById('results').textContent = 'Error: ' + error.message;
+            }
+        }
+        
+        async function testCreateLogNet() {
+            try {
+                const response = await fetch(`${API_BASE}/lognets`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        location_id: 1,
+                        name: 'Test LogNet',
+                        model: 'Test Model',
+                        brand: 'Test Brand',
+                        serial_number: 'SN123',
+                        firmware_version: 'v1.0',
+                        ip_address: '192.168.1.100',
+                        subnet_mask: '255.255.255.0',
+                        gateway: '192.168.1.1',
+                        dns: '8.8.8.8',
+                        is_active: true
+                    })
+                });
+                const data = await response.json();
+                document.getElementById('results').textContent = 
+                    'POST /lognets:\n' + JSON.stringify(data, null, 2);
+            } catch (error) {
+                document.getElementById('results').textContent = 'Error: ' + error.message;
+            }
+        }
+        
+        async function testCreateLogNetWithNullIP() {
+            try {
+                const response = await fetch(`${API_BASE}/lognets`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        location_id: 1,
+                        name: 'Test LogNet (Null IP)',
+                        model: 'Test Model',
+                        brand: 'Test Brand',
+                        serial_number: 'SN456',
+                        firmware_version: 'v1.0',
+                        ip_address: null,
+                        subnet_mask: null,
+                        gateway: null,
+                        dns: null,
+                        is_active: true
+                    })
+                });
+                const data = await response.json();
+                document.getElementById('results').textContent = 
+                    'POST /lognets (Null IP):\n' + JSON.stringify(data, null, 2);
+            } catch (error) {
+                document.getElementById('results').textContent = 'Error: ' + error.message;
+            }
+        }
+    </script>
+</body>
+</html>

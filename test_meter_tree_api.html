@@ -1,0 +1,169 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Test Meter Tree API</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; }
+        .container { max-width: 800px; margin: 0 auto; }
+        .test-section { margin: 20px 0; padding: 15px; border: 1px solid #ddd; border-radius: 5px; }
+        button { padding: 10px 15px; margin: 5px; background: #007bff; color: white; border: none; border-radius: 3px; cursor: pointer; }
+        button:hover { background: #0056b3; }
+        .result { margin-top: 10px; padding: 10px; background: #f8f9fa; border-radius: 3px; white-space: pre-wrap; }
+        .success { background: #d4edda; color: #155724; }
+        .error { background: #f8d7da; color: #721c24; }
+        input { padding: 8px; margin: 5px; border: 1px solid #ddd; border-radius: 3px; width: 200px; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🔧 Test Meter Tree API</h1>
+        
+        <div class="test-section">
+            <h3>1. ทดสอบ GET Locations</h3>
+            <button onclick="testGetLocations()">Get All Locations</button>
+            <div id="getResult" class="result"></div>
+        </div>
+
+        <div class="test-section">
+            <h3>2. ทดสอบ CREATE Location</h3>
+            <input type="text" id="locationName" placeholder="Location Name" value="Test Location">
+            <input type="text" id="locationDesc" placeholder="Description" value="Test Description">
+            <button onclick="testCreateLocation()">Create Location</button>
+            <div id="createResult" class="result"></div>
+        </div>
+
+        <div class="test-section">
+            <h3>3. ทดสอบ UPDATE Location</h3>
+            <input type="number" id="updateId" placeholder="Location ID">
+            <input type="text" id="updateName" placeholder="New Name" value="Updated Location">
+            <button onclick="testUpdateLocation()">Update Location</button>
+            <div id="updateResult" class="result"></div>
+        </div>
+
+        <div class="test-section">
+            <h3>4. ทดสอบ DELETE Location</h3>
+            <input type="number" id="deleteId" placeholder="Location ID">
+            <button onclick="testDeleteLocation()">Delete Location</button>
+            <div id="deleteResult" class="result"></div>
+        </div>
+    </div>
+
+    <script>
+        const API_BASE = 'http://localhost:3001/api/meter-tree';
+
+        function showResult(elementId, data, isError = false) {
+            const element = document.getElementById(elementId);
+            element.textContent = JSON.stringify(data, null, 2);
+            element.className = `result ${isError ? 'error' : 'success'}`;
+        }
+
+        async function testGetLocations() {
+            try {
+                console.log('🌐 Testing GET locations...');
+                const response = await fetch(`${API_BASE}/locations`);
+                const data = await response.json();
+                
+                if (response.ok) {
+                    showResult('getResult', { status: response.status, data });
+                    console.log('✅ GET locations success:', data);
+                } else {
+                    showResult('getResult', { status: response.status, error: data }, true);
+                    console.error('❌ GET locations failed:', data);
+                }
+            } catch (error) {
+                showResult('getResult', { error: error.message }, true);
+                console.error('❌ GET locations error:', error);
+            }
+        }
+
+        async function testCreateLocation() {
+            try {
+                const name = document.getElementById('locationName').value;
+                const description = document.getElementById('locationDesc').value;
+                
+                console.log('🌐 Testing CREATE location...', { name, description });
+                
+                const response = await fetch(`${API_BASE}/locations`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ name, description })
+                });
+                
+                const data = await response.json();
+                
+                if (response.ok) {
+                    showResult('createResult', { status: response.status, data });
+                    console.log('✅ CREATE location success:', data);
+                } else {
+                    showResult('createResult', { status: response.status, error: data }, true);
+                    console.error('❌ CREATE location failed:', data);
+                }
+            } catch (error) {
+                showResult('createResult', { error: error.message }, true);
+                console.error('❌ CREATE location error:', error);
+            }
+        }
+
+        async function testUpdateLocation() {
+            try {
+                const id = document.getElementById('updateId').value;
+                const name = document.getElementById('updateName').value;
+                
+                console.log('🌐 Testing UPDATE location...', { id, name });
+                
+                const response = await fetch(`${API_BASE}/locations/${id}`, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ name, description: 'Updated description' })
+                });
+                
+                const data = await response.json();
+                
+                if (response.ok) {
+                    showResult('updateResult', { status: response.status, data });
+                    console.log('✅ UPDATE location success:', data);
+                } else {
+                    showResult('updateResult', { status: response.status, error: data }, true);
+                    console.error('❌ UPDATE location failed:', data);
+                }
+            } catch (error) {
+                showResult('updateResult', { error: error.message }, true);
+                console.error('❌ UPDATE location error:', error);
+            }
+        }
+
+        async function testDeleteLocation() {
+            try {
+                const id = document.getElementById('deleteId').value;
+                
+                console.log('🌐 Testing DELETE location...', { id });
+                
+                const response = await fetch(`${API_BASE}/locations/${id}`, {
+                    method: 'DELETE'
+                });
+                
+                const data = await response.json();
+                
+                if (response.ok) {
+                    showResult('deleteResult', { status: response.status, data });
+                    console.log('✅ DELETE location success:', data);
+                } else {
+                    showResult('deleteResult', { status: response.status, error: data }, true);
+                    console.error('❌ DELETE location failed:', data);
+                }
+            } catch (error) {
+                showResult('deleteResult', { error: error.message }, true);
+                console.error('❌ DELETE location error:', error);
+            }
+        }
+
+        // Auto-test on load
+        window.onload = function() {
+            console.log('🚀 Meter Tree API Test Page Loaded');
+            console.log('📡 API Base URL:', API_BASE);
+        };
+    </script>
+</body>
+</html>
