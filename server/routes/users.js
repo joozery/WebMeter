@@ -29,7 +29,7 @@ const updateUserSchema = Joi.object({
   address: Joi.string().max(500).allow('', null).optional(),
   phone: Joi.string().max(20).allow('', null).optional(),
   lineId: Joi.string().max(50).allow('', null).optional(),
-  level: Joi.string().valid('Admin', 'Manager', 'Supervisor', 'Engineer', 'Operator').optional(),
+  level: Joi.string().valid('Admin', 'admin', 'Manager', 'manager', 'Supervisor', 'supervisor', 'Engineer', 'engineer', 'Operator', 'operator', 'Super Admin', 'viewer').optional(),
   status: Joi.string().valid('active', 'inactive').optional(),
   note: Joi.string().max(1000).allow('', null).optional(),
   groupId: Joi.number().integer().min(1).allow(null).optional(),
@@ -52,18 +52,22 @@ router.get('/', async (req, res) => {
     // Simple query without parameters for now
     let query = `
       SELECT 
-        id,
-        username,
-        email,
-        name,
-        surname,
-        address,
-        phone,
-        line_id as lineId,
-        created_at,
-        updated_at
-      FROM users
-      ORDER BY id ASC
+        u.id,
+        u.username,
+        u.email,
+        u.name,
+        u.surname,
+        u.address,
+        u.phone,
+        u.line_id as lineId,
+        u.status,
+        u.created_at,
+        u.updated_at,
+        r.name as role_name
+      FROM users u
+      LEFT JOIN user_roles ur ON ur.user_id = u.id
+      LEFT JOIN roles r ON r.id = ur.role_id
+      ORDER BY u.id ASC
       LIMIT 10
     `;
 
@@ -108,18 +112,22 @@ router.get('/:id', async (req, res) => {
 
     const query = `
       SELECT 
-        id,
-        username,
-        email,
-        name,
-        surname,
-        address,
-        phone,
-        line_id as lineId,
-        created_at,
-        updated_at
-      FROM users
-      WHERE id = ?
+        u.id,
+        u.username,
+        u.email,
+        u.name,
+        u.surname,
+        u.address,
+        u.phone,
+        u.line_id as lineId,
+        u.status,
+        u.created_at,
+        u.updated_at,
+        r.name as role_name
+      FROM users u
+      LEFT JOIN user_roles ur ON ur.user_id = u.id
+      LEFT JOIN roles r ON r.id = ur.role_id
+      WHERE u.id = ?
     `;
 
     const [result] = await db.query(query, [id]);
@@ -164,13 +172,13 @@ router.post('/', async (req, res) => {
     // Check if username or email already exists
     const checkQuery = `
       SELECT id, username, email 
-      FROM users.users 
-      WHERE username = $1 OR email = $2
+      FROM users 
+      WHERE username = ? OR email = ?
     `;
-    const checkResult = await db.query(checkQuery, [username, email]);
+    const [checkRows] = await db.query(checkQuery, [username, email]);
 
-    if (checkResult.rows.length > 0) {
-      const existingUser = checkResult.rows[0];
+    if (checkRows.length > 0) {
+      const existingUser = checkRows[0];
       const conflictField = existingUser.username === username ? 'username' : 'email';
       return res.status(409).json({
         success: false,
@@ -185,35 +193,37 @@ router.post('/', async (req, res) => {
 
     // Get role ID based on level
     const roleQuery = `
-      SELECT id FROM users.roles 
+      SELECT id FROM roles 
       WHERE role_name = CASE 
-        WHEN $1 = 'Admin' THEN 'System Administrator'
-        WHEN $1 = 'Manager' THEN 'Plant Manager'
-        WHEN $1 = 'Supervisor' THEN 'Operations Supervisor'
-        WHEN $1 = 'Engineer' THEN 'Maintenance Engineer'
-        WHEN $1 = 'Operator' THEN 'Control Room Operator'
+        WHEN ? = 'Admin' THEN 'System Administrator'
+        WHEN ? = 'Manager' THEN 'Plant Manager'
+        WHEN ? = 'Supervisor' THEN 'Operations Supervisor'
+        WHEN ? = 'Engineer' THEN 'Maintenance Engineer'
+        WHEN ? = 'Operator' THEN 'Control Room Operator'
         ELSE 'Control Room Operator'
       END
     `;
-    const roleResult = await db.query(roleQuery, [level]);
-    const roleId = roleResult.rows[0]?.id;
+    const [roleRows] = await db.query(roleQuery, [level, level, level, level, level]);
+    const roleId = roleRows[0]?.id;
 
     // Insert new user
     const insertQuery = `
-      INSERT INTO users.users (
+      INSERT INTO users (
         username, email, password_hash, name, surname, address, phone, line_id,
         level, role_id, status, note, created_at, updated_at, group_id
       ) VALUES (
-        $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, $13
-      ) RETURNING id, username, email, name, surname, address, phone, line_id as "lineId", level, status, note, group_id, created_at
+        ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, ?
+      )
     `;
 
-    const insertResult = await db.query(insertQuery, [
+    await db.query(insertQuery, [
       username, email, hashedPassword, name, surname, 
       address || null, phone || null, lineId || null, level, roleId, status, note || null, groupId || null
     ]);
 
-    const newUser = insertResult.rows[0];
+    const [newUserRows] = await db.query('SELECT id, username, email, name, surname, address, phone, line_id as lineId, level, status, note, group_id, created_at FROM users ORDER BY id DESC LIMIT 1');
+
+    const newUser = newUserRows[0];
 
     res.status(201).json({
       success: true,
@@ -269,9 +279,9 @@ router.put('/:id', async (req, res) => {
 
     // Check if user exists
     const userCheckQuery = 'SELECT id FROM users WHERE id = ?';
-    const userCheckResult = await db.query(userCheckQuery, [id]);
+    const [userCheckRows = []] = await db.query(userCheckQuery, [id]);
 
-    if (userCheckResult.rows.length === 0) {
+    if (userCheckRows.length === 0) {
       return res.status(404).json({
         success: false,
         error: 'User not found'
@@ -282,17 +292,17 @@ router.put('/:id', async (req, res) => {
     if (value.username || value.email) {
       const checkQuery = `
         SELECT id, username, email 
-        FROM users.users 
-        WHERE (username = $1 OR email = $2) AND id != $3
+        FROM users 
+        WHERE (username = ? OR email = ?) AND id != ?
       `;
-      const checkResult = await db.query(checkQuery, [
-        value.username || '', 
-        value.email || '', 
+      const [conflictRows = []] = await db.query(checkQuery, [
+        value.username || null,
+        value.email || null,
         id
       ]);
 
-      if (checkResult.rows.length > 0) {
-        const existingUser = checkResult.rows[0];
+      if (conflictRows.length > 0) {
+        const existingUser = conflictRows[0];
         const conflictField = existingUser.username === value.username ? 'username' : 'email';
         return res.status(409).json({
           success: false,
@@ -300,6 +310,20 @@ router.put('/:id', async (req, res) => {
           conflictField
         });
       }
+    }
+
+    // If client sent level, map it to role assignment via user_roles
+    if (value.level) {
+      const roleName = String(value.level).trim();
+      // Find role id by name (case-sensitive stored name)
+      const [roleLookupRows = []] = await db.query('SELECT id FROM roles WHERE name = ?', [roleName]);
+      const roleIdToAssign = roleLookupRows[0]?.id || null;
+      if (roleIdToAssign) {
+        await db.query('DELETE FROM user_roles WHERE user_id = ?', [id]);
+        await db.query('INSERT INTO user_roles (user_id, role_id) VALUES (?, ?)', [id, roleIdToAssign]);
+      }
+      // Remove level from regular column updates to avoid unknown column error
+      delete value.level;
     }
 
     // Build dynamic update query
@@ -319,15 +343,16 @@ router.put('/:id', async (req, res) => {
       } else if (key === 'lineId') {
         dbField = 'line_id';
       }
-      updateFields.push(`${dbField} = $${paramIndex}`);
+      updateFields.push(`${dbField} = ?`);
       updateValues.push(fieldValue);
-      paramIndex++;
     }
 
     if (updateFields.length === 0) {
-      return res.status(400).json({
-        success: false,
-        error: 'No fields to update'
+      // Nothing to update on users table (likely only role change). Treat as success.
+      return res.json({
+        success: true,
+        message: 'User role updated successfully',
+        data: { id: Number(id) }
       });
     }
 
@@ -335,10 +360,9 @@ router.put('/:id', async (req, res) => {
     updateFields.push(`updated_at = CURRENT_TIMESTAMP`);
 
     const updateQuery = `
-      UPDATE users.users 
+      UPDATE users 
       SET ${updateFields.join(', ')}
-      WHERE id = $${paramIndex}
-      RETURNING id, username, email, name, surname, address, phone, line_id as "lineId", level, status, note, group_id, updated_at
+      WHERE id = ?
     `;
 
     updateValues.push(id);
@@ -346,12 +370,17 @@ router.put('/:id', async (req, res) => {
     console.log('Update query:', updateQuery); // Debug log
     console.log('Update values:', updateValues); // Debug log
 
-    const updateResult = await db.query(updateQuery, updateValues);
+    await db.query(updateQuery, updateValues);
+
+    const [updatedRows] = await db.query(
+      'SELECT id, username, email, name, surname, address, phone, line_id as lineId, status, note, group_id, updated_at FROM users WHERE id = ?',
+      [id]
+    );
 
     res.json({
       success: true,
       message: 'User updated successfully',
-      data: updateResult.rows[0]
+      data: updatedRows[0]
     });
 
   } catch (error) {
@@ -377,10 +406,10 @@ router.delete('/:id', async (req, res) => {
     }
 
     // Check if user exists
-    const userCheckQuery = 'SELECT id, username FROM users.users WHERE id = $1';
-    const userCheckResult = await db.query(userCheckQuery, [id]);
+    const userCheckQuery = 'SELECT id, username FROM users WHERE id = ?';
+    const [userRows] = await db.query(userCheckQuery, [id]);
 
-    if (userCheckResult.rows.length === 0) {
+    if (userRows.length === 0) {
       return res.status(404).json({
         success: false,
         error: 'User not found'
@@ -389,12 +418,12 @@ router.delete('/:id', async (req, res) => {
 
     // Delete user
     const deleteQuery = 'DELETE FROM users WHERE id = ?';
-    const deleteResult = await db.query(deleteQuery, [id]);
+    await db.query(deleteQuery, [id]);
 
     res.json({
       success: true,
       message: 'User deleted successfully',
-      data: deleteResult.rows[0]
+      data: { id: Number(id) }
     });
 
   } catch (error) {
@@ -433,19 +462,12 @@ router.patch('/:id/status', async (req, res) => {
       WHERE id = ?
     `;
 
-    const result = await db.query(updateQuery, [status, id]);
-
-    if (result.rows.length === 0) {
-      return res.status(404).json({
-        success: false,
-        error: 'User not found'
-      });
-    }
+    await db.query(updateQuery, [status, id]);
 
     res.json({
       success: true,
       message: `User ${status === 'active' ? 'activated' : 'deactivated'} successfully`,
-      data: result.rows[0]
+      data: { id: Number(id), status }
     });
 
   } catch (error) {
@@ -480,11 +502,11 @@ router.get('/stats/summary', async (req, res) => {
         END
     `;
 
-    const result = await db.query(query);
+    const [rows] = await db.query(query);
 
     res.json({
       success: true,
-      data: result.rows
+      data: rows
     });
 
   } catch (error) {
@@ -502,7 +524,7 @@ router.get('/group/:groupId', async (req, res) => {
   const { groupId } = req.params;
   
   try {
-    const result = await db.query(`
+    const [rows2] = await db.query(`
       SELECT u.id, u.username, u.email, u.name, u.surname, u.phone, u.status, eg.name as group_name
       FROM users.users u
       LEFT JOIN users.email_groups eg ON u.group_id = eg.id
@@ -510,7 +532,7 @@ router.get('/group/:groupId', async (req, res) => {
       ORDER BY u.id ASC
     `, [groupId]);
     
-    res.json({ success: true, data: result.rows });
+    res.json({ success: true, data: rows2 });
   } catch (err) {
     console.error('Error fetching users by group:', err);
     res.status(500).json({ success: false, error: 'Failed to fetch users by group', message: err.message });
@@ -522,7 +544,7 @@ router.get('/line-group/:groupId', async (req, res) => {
   const { groupId } = req.params;
   
   try {
-    const result = await db.query(`
+    const [rows3] = await db.query(`
       SELECT u.id, u.username, u.email, u.name, u.surname, u.phone, u.line_id, u.status, lg.name as group_name
       FROM users.users u
       LEFT JOIN users.line_groups lg ON u.groupline_id = lg.id
@@ -530,7 +552,7 @@ router.get('/line-group/:groupId', async (req, res) => {
       ORDER BY u.id ASC
     `, [groupId]);
     
-    res.json({ success: true, data: result.rows });
+    res.json({ success: true, data: rows3 });
   } catch (err) {
     console.error('Error fetching users by line group:', err);
     res.status(500).json({ success: false, error: 'Failed to fetch users by line group', message: err.message });

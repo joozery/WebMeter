@@ -77,7 +77,10 @@ export const auth = {
   
   verifyToken: () => apiClient.get('/auth/verify'),
   
-  refreshToken: () => apiClient.post('/auth/refresh'),
+    refreshToken: () => apiClient.post('/auth/refresh'),
+  
+  lineLogin: (code: string) => 
+    apiClient.post('/auth/line/callback', { code }),
 };
 
 // User Management API

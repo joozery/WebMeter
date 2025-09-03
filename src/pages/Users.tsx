@@ -55,6 +55,7 @@ import {
   UserCog
 } from 'lucide-react';
 import { FaUserShield } from "react-icons/fa";
+import useCustomSwal from '@/utils/swal';
 
 // Use API User interface instead of local interface
 type User = ApiUser;
@@ -87,6 +88,7 @@ type SortField = 'id' | 'name' | 'surname' | 'username' | 'email' | 'phone' | 'l
 type SortDirection = 'asc' | 'desc';
 
 export default function Users() {
+  const { showSuccessToast, showErrorToast, showConfirmDialog } = useCustomSwal();
   // API State Management
   const [users, setUsers] = useState<User[]>([]);
   const [userRoles, setUserRoles] = useState<Role[]>([]);
@@ -353,7 +355,13 @@ export default function Users() {
   // Set default selected role when userRoles are loaded
   useEffect(() => {
     if (userRoles.length > 0 && !selectedRole) {
-              setSelectedRole(userRoles[0].name);
+      const firstRoleName = userRoles[0].name;
+      setSelectedRole(firstRoleName);
+      setRolePermissions(prev => {
+        if (prev[firstRoleName]) return prev;
+        // initialize empty permission map for unknown roles
+        return { ...prev, [firstRoleName]: {} } as any;
+      });
     }
   }, [userRoles, selectedRole]);
 
@@ -503,7 +511,8 @@ export default function Users() {
 
   const handleDeleteRoleAPI = async (roleId: number) => {
     try {
-      if (!confirm('Are you sure you want to delete this role? This action cannot be undone.')) {
+      const { isConfirmed } = await showConfirmDialog({ title: 'Are you sure?', text: 'Are you sure you want to delete this role? This action cannot be undone.', icon: 'warning', confirmButtonText: 'Yes, delete it!' });
+      if (!isConfirmed) {
         return;
       }
       
@@ -532,7 +541,8 @@ export default function Users() {
         ? 'Are you sure you want to deactivate this user?' 
         : 'Are you sure you want to activate this user?';
       
-      if (!confirm(message)) {
+      const { isConfirmed } = await showConfirmDialog({ title: 'Confirm status change', text: message, icon: 'warning', confirmButtonText: 'Yes, proceed' });
+      if (!isConfirmed) {
         return;
       }
       
@@ -562,15 +572,15 @@ export default function Users() {
 
       const message = `Are you sure you want to set ${user.name} ${user.surname}'s permissions based on the "${roleName}" role?`;
       
-      if (!confirm(message)) {
+      const { isConfirmed } = await showConfirmDialog({ title: 'Confirm role change', text: message, icon: 'warning', confirmButtonText: 'Yes, update' });
+      if (!isConfirmed) {
         return;
       }
       
       setLoading(true);
       
-      // Update user's level to match the role
+      // Only update the level to avoid validation errors
       const response = await usersApi.update(userId, {
-        ...user,
         level: roleName as User['level']
       });
       
@@ -913,7 +923,8 @@ export default function Users() {
 
   const handleDeleteUser = async (id: number) => {
     try {
-      if (!confirm('Are you sure you want to delete this user?')) {
+      const { isConfirmed } = await showConfirmDialog({ title: 'Delete user?', text: 'Are you sure you want to delete this user?', icon: 'warning', confirmButtonText: 'Yes, delete' });
+      if (!isConfirmed) {
         return;
       }
       
@@ -983,13 +994,14 @@ export default function Users() {
     }
   };
 
-  const handleBulkStatusChange = (status: 'active' | 'inactive') => {
+  const handleBulkStatusChange = async (status: 'active' | 'inactive') => {
     const selectedUsersList = users.filter(user => selectedUsers.has(user.id));
     const message = status === 'inactive' 
       ? `Are you sure you want to deactivate ${selectedUsersList.length} user(s)?`
       : `Are you sure you want to activate ${selectedUsersList.length} user(s)?`;
     
-    if (confirm(message)) {
+    const { isConfirmed } = await showConfirmDialog({ title: 'Confirm bulk action', text: message, icon: 'warning', confirmButtonText: 'Yes, proceed' });
+    if (isConfirmed) {
       setUsers(users.map(user => 
         selectedUsers.has(user.id) ? { ...user, status } : user
       ));
@@ -998,18 +1010,20 @@ export default function Users() {
     }
   };
 
-  const handleBulkDelete = () => {
+  const handleBulkDelete = async () => {
     const selectedUsersList = users.filter(user => selectedUsers.has(user.id));
-    if (confirm(`Are you sure you want to delete ${selectedUsersList.length} user(s)? This action cannot be undone.`)) {
+    const { isConfirmed } = await showConfirmDialog({ title: 'Delete selected users?', text: `Are you sure you want to delete ${selectedUsersList.length} user(s)? This action cannot be undone.`, icon: 'warning', confirmButtonText: 'Yes, delete' });
+    if (isConfirmed) {
       setUsers(users.filter(user => !selectedUsers.has(user.id)));
       setSelectedUsers(new Set());
       setIsMultiSelectMode(false);
     }
   };
 
-  const handleBulkLevelChange = (level: User['level']) => {
+  const handleBulkLevelChange = async (level: User['level']) => {
     const selectedUsersList = users.filter(user => selectedUsers.has(user.id));
-    if (confirm(`Are you sure you want to change the access level of ${selectedUsersList.length} user(s) to ${level}?`)) {
+    const { isConfirmed } = await showConfirmDialog({ title: 'Change level?', text: `Are you sure you want to change the access level of ${selectedUsersList.length} user(s) to ${level}?`, icon: 'warning', confirmButtonText: 'Yes, change' });
+    if (isConfirmed) {
       setUsers(users.map(user => 
         selectedUsers.has(user.id) ? { ...user, level } : user
       ));
@@ -1018,9 +1032,10 @@ export default function Users() {
     }
   };
 
-  const handleSingleUserLevelChange = (userId: number, level: User['level']) => {
+  const handleSingleUserLevelChange = async (userId: number, level: User['level']) => {
     const user = users.find(u => u.id === userId);
-    if (user && confirm(`Are you sure you want to change ${user.name} ${user.surname}'s access level to ${level}?`)) {
+    const { isConfirmed } = await showConfirmDialog({ title: 'Change level?', text: user ? `Are you sure you want to change ${user.name} ${user.surname}'s access level to ${level}?` : `Change level to ${level}?`, icon: 'warning', confirmButtonText: 'Yes, change' });
+    if (user && isConfirmed) {
       setUsers(users.map(u => 
         u.id === userId ? { ...u, level } : u
       ));
@@ -1171,16 +1186,20 @@ export default function Users() {
 
   // Authorize tab functions
   const handlePermissionChange = (role: string, module: string, type: 'read' | 'write' | 'report', value: boolean) => {
-    setRolePermissions(prev => ({
-      ...prev,
-      [role]: {
-        ...prev[role],
-        [module]: {
-          ...prev[role][module],
-          [type]: value
+    setRolePermissions(prev => {
+      const existingRole = prev[role] || {} as any;
+      const existingModule = existingRole[module] || { read: false, write: false, report: false };
+      return {
+        ...prev,
+        [role]: {
+          ...existingRole,
+          [module]: {
+            ...existingModule,
+            [type]: value
+          }
         }
-      }
-    }));
+      };
+    });
   };
 
   const handleAddRole = () => {
@@ -1216,8 +1235,9 @@ export default function Users() {
     }
   };
 
-  const handleDeleteRole = (roleToDelete: string) => {
-    if (confirm(`Are you sure you want to delete the role "${roleToDelete}"?`)) {
+  const handleDeleteRole = async (roleToDelete: string) => {
+    const { isConfirmed } = await showConfirmDialog({ title: 'Delete role?', text: `Are you sure you want to delete the role "${roleToDelete}"?`, icon: 'warning', confirmButtonText: 'Yes, delete' });
+    if (isConfirmed) {
       // This is deprecated - use handleDeleteRoleAPI instead
       console.warn('Use handleDeleteRoleAPI instead');
       setRolePermissions(prev => {
@@ -1967,7 +1987,7 @@ export default function Users() {
                                   )}
                                 </td>
                                 <td className="px-3 py-2">
-                                  {getLevelBadge(user.level)}
+                                  {getLevelBadge(user.level || (user as any).role_name)}
                                 </td>
                                 <td className="px-3 py-2 text-center">
                                   <div 
@@ -2103,7 +2123,7 @@ export default function Users() {
                   <th className="w-45 px-2 py-1 text-left text-xs font-semibold text-gray-500 tracking-wider">Email</th>
                   <th className="w-35 px-2 py-1 text-left text-xs font-semibold text-gray-500 tracking-wider">Name-Lastname</th>
                   <th className="w-35 px-2 py-1 text-left text-xs font-semibold text-gray-500 tracking-wider">Address</th>
-                  <th className="w-20 px-2 py-1 text-left text-xs font-semibold text-gray-500 tracking-wider">Level</th>
+                  <th className="w-28 px-2 py-1 text-left text-xs font-semibold text-gray-500 tracking-wider">Level</th>
                   <th className="w-30 px-2 py-1 text-center text-xs font-semibold text-gray-500 tracking-wider">Active</th>
                   <th className="w-auto px-2 py-1 text-left text-xs font-semibold text-gray-500 tracking-wider">Note</th>
                 </tr>
@@ -2140,9 +2160,9 @@ export default function Users() {
                             <span className="text-xs text-gray-900">{user.address || ''}</span>
                           </div>
                         </td>
-                        <td className="w-20 px-2 py-1">
+                        <td className="w-28 px-2 py-1">
                           <div className="truncate">
-                            {getLevelBadge(user.level)}
+                            {getLevelBadge(user.level || (user as any).role_name)}
                           </div>
                         </td>
                         <td className="w-16 px-2 py-1 text-center">
@@ -2315,7 +2335,7 @@ export default function Users() {
                           Authorize : <span className="font-semibold">{selectedRole}</span>
                         </h3>
                       </div>
-                      <div className="overflow-x-auto">
+                      <div className="overflow-x-auto overflow-y-auto max-h-[70vh]">
                         <table className="min-w-full">
                           <thead className="bg-gray-50 border-b border-gray-200">
                             <tr>

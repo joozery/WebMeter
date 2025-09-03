@@ -28,6 +28,7 @@ import TOUCompare from "./pages/TOU-Compare";
 import Charge from "./pages/Charge";
 import Holiday from "./pages/Holiday";
 import AuthCallback from './pages/AuthCallback';
+import LineCallback from './pages/LineCallback';
 
 
 import React, { useState } from 'react';
@@ -83,7 +84,7 @@ const App = () => {
                   <Route path="/holiday" element={<Holiday />} />
                   <Route path="/login" element={<Login />} />
                   <Route path="/auth/callback" element={<AuthCallback />} />
-                  <Route path="/line-callback" element={<div>Redirecting...</div>} />
+                  <Route path="/line-callback" element={<LineCallback />} />
                   {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
                   <Route path="*" element={<NotFound />} />
                 </Routes>

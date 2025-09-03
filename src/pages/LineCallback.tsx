@@ -1,0 +1,67 @@
+import { useEffect, useState } from 'react';
+import { useLocation, useNavigate } from 'react-router-dom';
+import { auth } from '@/services/api';
+
+const LineCallback = () => {
+  const navigate = useNavigate();
+  const location = useLocation();
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    const processLineLogin = async () => {
+      const params = new URLSearchParams(location.search);
+      const code = params.get('code');
+
+      if (!code) {
+        setError('ไม่พบ Authorization Code จาก LINE');
+        return;
+      }
+
+      try {
+        const response = await auth.lineLogin(code);
+
+        if (response.success && response.token) {
+          localStorage.setItem('token', response.token);
+          localStorage.setItem('isGuest', 'false');
+          // สามารถเพิ่มการเก็บข้อมูล user อื่นๆ ได้จาก response
+          navigate('/dashboard'); // Redirect ไปยังหน้า Dashboard
+        } else {
+          setError(response.error || 'การเข้าสู่ระบบด้วย LINE ล้มเหลว');
+        }
+      } catch (err) {
+        console.error('Line callback error:', err);
+        setError('เกิดข้อผิดพลาดในการสื่อสารกับเซิร์ฟเวอร์');
+      }
+    };
+
+    processLineLogin();
+  }, [location, navigate]);
+
+  return (
+    <div className="min-h-screen flex flex-col items-center justify-center bg-gray-100">
+      <div className="p-8 bg-white shadow-lg rounded-lg text-center">
+        {error ? (
+          <>
+            <h2 className="text-2xl font-bold text-red-600 mb-4">เกิดข้อผิดพลาด</h2>
+            <p className="text-gray-700">{error}</p>
+            <button 
+              onClick={() => navigate('/login')} 
+              className="mt-6 px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 transition-colors"
+            >
+              กลับไปหน้า Login
+            </button>
+          </>
+        ) : (
+          <>
+            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
+            <h2 className="text-2xl font-bold text-gray-800">กำลังดำเนินการ...</h2>
+            <p className="text-gray-600">กรุณารอสักครู่ ระบบกำลังทำการยืนยันตัวตนผ่าน LINE</p>
+          </>
+        )}
+      </div>
+    </div>
+  );
+};
+
+export default LineCallback;
+
