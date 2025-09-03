@@ -18,8 +18,8 @@ router.post('/login', async (req, res) => {
     
     // Find user by email
     const [users] = await db.query(
-      'SELECT * FROM users WHERE email = ?',
-      [email]
+      'SELECT * FROM users WHERE email = ? OR username = ?',
+      [email, email]
     );
     
     if (users.length === 0) {

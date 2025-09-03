@@ -85,8 +85,9 @@ const Login = () => {
     try {
       const response = await auth.login({ email: username, password });
       
-      if (response.success && response.data) {
+      if (response.success && response.token) {
         // Login successful
+        localStorage.setItem('token', response.token);
         localStorage.setItem('userUsername', username);
         localStorage.setItem('isGuest', 'false');
         
