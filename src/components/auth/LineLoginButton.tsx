@@ -22,13 +22,11 @@ export const LineLoginButton: React.FC<LineLoginButtonProps> = ({
       const response = await fetch('/api/auth/line/login');
       const data = await response.json();
       
-      if (response.ok && data.authUrl) {
+      if (data.authUrl) {
         // Redirect to LINE login
         window.location.href = data.authUrl;
       } else {
-        // Handle configuration errors
-        const errorMessage = data.error || 'Failed to get LINE login URL';
-        throw new Error(errorMessage);
+        throw new Error('Failed to get LINE login URL');
       }
     } catch (error) {
       console.error('LINE Login error:', error);

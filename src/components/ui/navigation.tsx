@@ -125,20 +125,28 @@ export function MainNavigation() {
   const { language, setLanguage } = useLanguage();
   const navItems = getNavItems(language);
 
-  // ดึง username และ level จาก localStorage
-  let username = localStorage.getItem('userUsername') || localStorage.getItem('userEmail') || '';
-  let isGuest = localStorage.getItem('isGuest') === 'true';
-  let userLevel = isGuest ? 'read only' : 'user';
-  if (isGuest) username = 'guest';
+  const [username, setUsername] = React.useState('');
+  const [isGuest, setIsGuest] = React.useState(false);
+
+  React.useEffect(() => {
+    const storedUsername = localStorage.getItem('userUsername') || localStorage.getItem('userEmail') || '';
+    const guestStatus = localStorage.getItem('isGuest') === 'true';
+    
+    setUsername(guestStatus ? 'guest' : storedUsername);
+    setIsGuest(guestStatus);
+  }, [navigate]); // Re-run when navigation occurs
 
   const handleLanguageSwitch = () => {
     setLanguage(language === 'TH' ? 'EN' : 'TH');
   };
 
   const handleLogout = () => {
-    // Clear any stored user data
-    localStorage.removeItem('rememberMe');
+    // Clear all user-related data from localStorage
+    localStorage.removeItem('token');
+    localStorage.removeItem('userUsername');
     localStorage.removeItem('userEmail');
+    localStorage.removeItem('isGuest');
+    localStorage.removeItem('rememberMe');
     
     // Navigate to login page
     navigate('/login');

@@ -216,4 +216,116 @@ async function createOrUpdateUser(userData) {
   }
 }
 
+// New route for frontend to handle LINE login token exchange
+router.post('/line-login', async (req, res) => {
+  try {
+    const { code } = req.body;
+
+    if (!code) {
+      return res.status(400).json({ error: 'Authorization code is required' });
+    }
+
+    // Exchange code for access token
+    const tokenResponse = await axios.post('https://api.line.me/oauth2/v2.1/token', new URLSearchParams({
+      grant_type: 'authorization_code',
+      code: code,
+      redirect_uri: process.env.LINE_REDIRECT_URI,
+      client_id: process.env.LINE_CHANNEL_ID,
+      client_secret: process.env.LINE_CHANNEL_SECRET
+    }), {
+      headers: {
+        'Content-Type': 'application/x-www-form-urlencoded'
+      }
+    });
+
+    const { access_token, id_token } = tokenResponse.data;
+
+    // Get user profile from LINE
+    const profileResponse = await axios.get('https://api.line.me/v2/profile', {
+      headers: {
+        'Authorization': `Bearer ${access_token}`
+      }
+    });
+
+    const userProfile = profileResponse.data;
+    const decodedIdToken = jwt.decode(id_token);
+
+    // Find or create user in the database
+    const [existingUsers] = await db.query(
+      'SELECT * FROM users WHERE line_id = ?',
+      [userProfile.userId]
+    );
+
+    let user;
+    if (existingUsers.length > 0) {
+      // User exists, update their info
+      user = existingUsers[0];
+      await db.query(
+        'UPDATE users SET name = ? WHERE id = ?',
+        [userProfile.displayName, user.id]
+      );
+    } else {
+      // New user, create a new record
+      const [result] = await db.query(
+        'INSERT INTO users (name, email, line_id, username) VALUES (?, ?, ?, ?)',
+        [userProfile.displayName, decodedIdToken.email, userProfile.userId, userProfile.displayName]
+      );
+      const [newUsers] = await db.query('SELECT * FROM users WHERE id = ?', [result.insertId]);
+      user = newUsers[0];
+    }
+
+    // Generate JWT token for our application
+    const appToken = jwt.sign(
+      {
+        userId: user.id,
+        email: user.email,
+        name: user.name
+      },
+      process.env.JWT_SECRET,
+      { expiresIn: '24h' }
+    );
+
+    res.json({
+      success: true,
+      message: 'LINE login successful',
+      token: appToken,
+      user
+    });
+
+  } catch (error) {
+    console.error('LINE Login callback error:', error.response ? JSON.stringify(error.response.data, null, 2) : error.message);
+    
+    // Check if environment variables are loaded
+    if (!process.env.LINE_CHANNEL_ID || !process.env.LINE_CHANNEL_SECRET || !process.env.LINE_REDIRECT_URI) {
+      return res.status(500).json({ 
+        error: 'Server configuration error',
+        message: 'One or more required LINE environment variables are missing on the server.'
+      });
+    }
+
+    // Provide more specific error feedback to the client
+    if (error.response) {
+      // The request was made and the server responded with a status code
+      // that falls out of the range of 2xx
+      return res.status(500).json({ 
+        error: 'Error from LINE API',
+        message: 'The server received an error while communicating with the LINE API.',
+        details: error.response.data 
+      });
+    } else if (error.request) {
+      // The request was made but no response was received
+      return res.status(500).json({ 
+        error: 'No response from LINE API',
+        message: 'The server could not reach the LINE API. Check server network connectivity.'
+      });
+    } else {
+      // Something happened in setting up the request that triggered an Error
+      return res.status(500).json({ 
+        error: 'Internal server error during LINE login',
+        message: error.message 
+      });
+    }
+  }
+});
+
 module.exports = router;

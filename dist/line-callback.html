@@ -56,20 +56,20 @@
                 type: 'LINE_LOGIN_ERROR',
                 error: error,
                 errorDescription: errorDescription
-            }, window.location.origin);
+            }, 'http://localhost:8082');
         } else if (code && state) {
             // Handle success
             window.opener.postMessage({
                 type: 'LINE_LOGIN_SUCCESS',
                 code: code,
                 state: state
-            }, window.location.origin);
+            }, 'http://localhost:8082');
         } else {
             // Handle unexpected state
             window.opener.postMessage({
                 type: 'LINE_LOGIN_ERROR',
                 error: 'Unexpected response from Line'
-            }, window.location.origin);
+            }, 'http://localhost:8082');
         }
 
         // Close popup after sending message

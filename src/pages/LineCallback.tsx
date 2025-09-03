@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
-import { auth } from '@/services/api';
+import axios from 'axios';
 
 const LineCallback = () => {
   const navigate = useNavigate();
@@ -18,19 +18,20 @@ const LineCallback = () => {
       }
 
       try {
-        const response = await auth.lineLogin(code);
+        const response = await axios.post('/api/auth/line-login', { code });
 
-        if (response.success && response.token) {
-          localStorage.setItem('token', response.token);
+        if (response.data.success && response.data.token) {
+          localStorage.setItem('token', response.data.token);
+          localStorage.setItem('userUsername', response.data.user.name || 'line_user');
           localStorage.setItem('isGuest', 'false');
-          // สามารถเพิ่มการเก็บข้อมูล user อื่นๆ ได้จาก response
-          navigate('/dashboard'); // Redirect ไปยังหน้า Dashboard
+          navigate('/dashboard'); // Redirect to dashboard
         } else {
-          setError(response.error || 'การเข้าสู่ระบบด้วย LINE ล้มเหลว');
+          setError(response.data.error || 'การเข้าสู่ระบบด้วย LINE ล้มเหลว');
         }
-      } catch (err) {
+      } catch (err: any) {
         console.error('Line callback error:', err);
-        setError('เกิดข้อผิดพลาดในการสื่อสารกับเซิร์ฟเวอร์');
+        const errorMessage = err.response?.data?.message || err.response?.data?.error || 'เกิดข้อผิดพลาดในการสื่อสารกับเซิร์ฟเวอร์';
+        setError(errorMessage);
       }
     };
 
@@ -64,4 +65,6 @@ const LineCallback = () => {
 };
 
 export default LineCallback;
+
+
 

@@ -9,6 +9,7 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { InputOTP, InputOTPGroup, InputOTPSlot, InputOTPSeparator } from '@/components/ui/input-otp';
 import { auth, signup } from '@/services/api';
+import axios from 'axios';
 
 const Login = () => {
   const navigate = useNavigate();
@@ -141,84 +142,18 @@ const Login = () => {
       setError('');
       
       // Line Login Configuration
-      const LINE_CHANNEL_ID = import.meta.env.VITE_LINE_CHANNEL_ID || 'your_line_channel_id';
+      const LINE_CHANNEL_ID = import.meta.env.VITE_LINE_CHANNEL_ID || '2008032688';
       const REDIRECT_URI = `${window.location.origin}/line-callback`;
       
       // Line OAuth URL
       const lineAuthUrl = `https://access.line.me/oauth2/v2.1/authorize?response_type=code&client_id=${LINE_CHANNEL_ID}&redirect_uri=${encodeURIComponent(REDIRECT_URI)}&state=${Math.random().toString(36).substring(7)}&scope=profile%20openid%20email`;
       
-      // Open Line OAuth popup
-      const popup = window.open(
-        lineAuthUrl,
-        'lineLogin',
-        'width=500,height=600,scrollbars=yes,resizable=yes'
-      );
-      
-      // Listen for message from popup
-      const handleMessage = async (event: MessageEvent) => {
-        if (event.origin !== window.location.origin) return;
-        
-        if (event.data.type === 'LINE_LOGIN_SUCCESS') {
-          const { code, state } = event.data;
-          
-          try {
-            // Send code to backend for verification
-            // TODO: Implement Line Login API
-            const response = { 
-              success: false, 
-              error: 'Line Login not implemented yet',
-              data: { user: { username: 'line_user' } }
-            };
-            
-            if (response.success && response.data) {
-              // Login successful
-              localStorage.setItem('userUsername', response.data.user.username || 'line_user');
-              localStorage.setItem('isGuest', 'false');
-              localStorage.setItem('lineUserId', response.data.user.username || '');
-              
-              // Reset error states
-              setError('');
-              setRemainingAttempts(3);
-              setIsLocked(false);
-              
-              navigate('/home');
-            } else {
-              setError(response.error || 'Line login failed. Please try again.');
-            }
-          } catch (error: any) {
-            console.error('Line login error:', error);
-            setError('Line login failed. Please try again.');
-          } finally {
-            setIsLoading(false);
-          }
-          
-          // Clean up
-          window.removeEventListener('message', handleMessage);
-          if (popup) popup.close();
-        }
-        
-        if (event.data.type === 'LINE_LOGIN_ERROR') {
-          setError('Line login was cancelled or failed.');
-          setIsLoading(false);
-          window.removeEventListener('message', handleMessage);
-          if (popup) popup.close();
-        }
-      };
-      
-      window.addEventListener('message', handleMessage);
-      
-      // Fallback: check if popup was closed
-      const checkClosed = setInterval(() => {
-        if (popup && popup.closed) {
-          clearInterval(checkClosed);
-          window.removeEventListener('message', handleMessage);
-          setIsLoading(false);
-        }
-      }, 1000);
+      // Redirect the user to the LINE login page
+      window.location.href = lineAuthUrl;
       
     } catch (error: any) {
       console.error('Line login error:', error);
-      setError('Line login failed. Please try again.');
+      setError('Failed to initiate LINE login. Please try again.');
       setIsLoading(false);
     }
   };
